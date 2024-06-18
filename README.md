@@ -1,5 +1,5 @@
 ### Original model code exists, but revised a little bit to make it useful.
-#### no pth file opened yet
+#### no pth model file opened yet
 
 # Video-Deinterlacing
 code of https://arxiv.org/pdf/2404.13018, but revised to be useful
