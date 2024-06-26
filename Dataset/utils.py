@@ -137,7 +137,8 @@ def read_img(env, path, size=None):
     if env is None:  # img
         img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
     else:
-        img = _read_img_lmdb(env, path, size)
+        img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+        # img = _read_img_lmdb(env, path, size)
     img = img.astype(np.float32) / 255.
     if img.ndim == 2:
         img = np.expand_dims(img, axis=2)
@@ -156,14 +157,27 @@ def read_img_seq(path):
     """
     if type(path) is list:
         img_path_l = path
+        # print("img_path_l",img_path_l)
+        # ['/home/kimsy701/Video-Deinterlacing/Dataset/sampled_train_dataset/43_750/im1.png', 
+        # '/home/kimsy701/Video-Deinterlacing/Dataset/sampled_train_dataset/43_750/im2.png', 
+        # '/home/kimsy701/Video-Deinterlacing/Dataset/sampled_train_dataset/43_750/im3.png', 
+        # '/home/kimsy701/Video-Deinterlacing/Dataset/sampled_train_dataset/43_750/im4.png', 
+        # '/home/kimsy701/Video-Deinterlacing/Dataset/sampled_train_dataset/43_750/im5.png', 
+        # '/home/kimsy701/Video-Deinterlacing/Dataset/sampled_train_dataset/43_750/im6.png']
     else:
         img_path_l = sorted(glob.glob(os.path.join(path, '*')))
     img_l = [read_img(None, v) for v in img_path_l]
+    # print("(img_l[0]*255).astype(dtype=int).transpose(2,0,1) shape",(img_l[0]*255).astype(dtype=int).transpose(2,0,1).shape) #(3,128,448)
+    # print("img_l[0] mean", np.mean(img_l[0]))
+    # cv2.imwrite('/home/kimsy701/Video-Deinterlacing/img_l.png',(img_l[0] * 255).clip(0, 255).astype(np.uint8)) #(128,448,3) -> 잘 나옴 
+    # print("img_l len",len(img_l)) #6
+    # print("img_l[0] shape",img_l[0].shape ) #(128,448,3)
     # stack to Torch tensor
-    imgs = np.stack(img_l, axis=0)
-    imgs = imgs[:, :, :, [2, 1, 0]]
-    imgs = torch.from_numpy(np.ascontiguousarray(np.transpose(imgs, (0, 3, 1, 2)))).float()
-    return imgs
+    imgs = np.stack(img_l, axis=0) #(6,128,448,3)
+    # imgs = imgs[:, :, :, [2, 1, 0]]  ##(6,128,448,3) #RGB 맞추기
+    imgs = torch.from_numpy(np.ascontiguousarray(np.transpose(imgs, (0, 3, 1, 2)))).float() #(6,3,128,448)
+    # print("imgs[2] avg",torch.mean(imgs[2])) #서로 다른 값으로, 0아닌 값으로 나옴
+    return imgs,img_path_l
 
 def index_generation_evenodd(Bufinit_idx,crt_i, max_n, N, padding='reflection'):
     """Generate an index list for reading N frames from a sequence of images
