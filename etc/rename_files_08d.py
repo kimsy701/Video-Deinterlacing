@@ -1,7 +1,6 @@
-# train_val_winter_fi_rst_rst0_0.png -> 1.png 등등으로 index로 이름 rename
-
-import os 
+import os
 import shutil
+
 
 def extract_number(directory):
     parts = directory.split('_')
@@ -18,18 +17,39 @@ def extract_number(directory):
     return float('inf')  # Return infinity if no underscore is found (optional)
 
 
+def extract_number2(directory):
+    return int(directory)
 
-def rename_files(src_folder, dest_path):
-    files = sorted(os.listdir(src_folder), key=extract_number)
-    for idx, files in enumerate(files):
-        print("files", files)
-        file_path = os.path.join(src_folder, files)
-        new_name =f'{idx+1:08d}.png'
-        dest_file_path = os.path.join(dest_path,new_name)
-        shutil.copy(file_path, dest_file_path)
+def extract_number3(directory):
+    parts = os.path.splitext(directory)[0]
+    return int(parts)
+
+
+
+
+#### 1. rename and put the folders in one folder ####
+
+# src_path1="/home/kimsy701/deinter_venv/train_val_winter_searaft_rst"
+# dest_path1="/home/kimsy701/deinter_venv/train_val_winter_searaft_rst_rst"
+
+# for folders in sorted(os.listdir(src_path1), key=extract_number2):
+#     folder_path = os.path.join(src_path1, folders)
+#     for files in sorted(os.listdir(folder_path), key=extract_number3):
+#         file_path = os.path.join(folder_path, files)
+#         dest_folder_path = os.path.join(dest_path1, f'{folders}_{files}')
+#         # os.mkdir(dest_folder_path)
+#         shutil.copy(file_path, dest_folder_path)
         
         
-src_path = "/mnt/sdb/deinter/deinter_dataset/train_val_winter_fi_rst_rst"
-dest_path = "/mnt/sdb/deinter/deinter_dataset/train_val_winter_fi_rst_rst_rst"
-os.mkdir(dest_path)
-rename_files(src_path,dest_path)
+        
+#### 2. rename files ####
+
+src_path2="/home/kimsy701/deinter_venv/gt_val_winter_fi"
+dest_path2="/home/kimsy701/deinter_venv/gt_val_winter_fi_fi"
+
+for idx, files in enumerate(sorted(os.listdir(src_path2), key=extract_number2)):   #change the key, according to the scr path's folder name pattern 
+    ori_file_path = os.path.join(src_path2, files)
+    new_name =f'{idx+1:08d}.png'
+    dest_folder_path = os.path.join(dest_path2, new_name)
+        # os.mkdir(dest_folder_path)
+    shutil.copy(ori_file_path, dest_folder_path)
