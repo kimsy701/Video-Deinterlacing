@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import Models.archs.arch_util as arch_util
+import cv2
 
 
 from mmcv.ops import ModulatedDeformConv2d, modulated_deform_conv2d
@@ -176,7 +177,7 @@ class DfConv_EkSA(nn.Module):
 
         #### reconstruction
         self.recon_trunk1 = arch_util.make_layer(ResidualBlock_noBN_f, back_RBs)
-        self.recon_trunk2 = arch_util.make_layer(ResidualBlock_noBN_f, back_RBs)
+        # self.recon_trunk2 = arch_util.make_layer(ResidualBlock_noBN_f, back_RBs) #안쓰이니까 주석처리? (실험)
 
         self.HRconv = nn.Conv2d(64, 64, 3, 1, 1, bias=True)
         self.conv_last = nn.Conv2d(64, 3, 3, 1, 1, bias=True)
@@ -186,7 +187,13 @@ class DfConv_EkSA(nn.Module):
 
     def forward(self, x0):
         evenodd=x0[:, -1, :, :, :].contiguous()
-        x = x0[:, 0:-1, :, :, :].contiguous()
+        # print("evenodd shape", evenodd.shape) #torch.Size([8, 3, 128, 448]) #각 배치의 가장 마지막 이미지
+        x = x0[:, 0:-1, :, :, :].contiguous() #하나 자름 
+        # print("x shape",x.shape) #torch.Size([8, 5, 3, 128, 448]) 
+        # cv2.imwrite(f'/home/kimsy701/Video-Deinterlacing/x_0_2.png', (x[0][2]*255).clip(0,255).int().cpu().permute(1,2,0).numpy()) #중간꺼 print
+        #cv2.imwrite('/home/kimsy701/Video-Deinterlacing/img_l.png',(img_l[0] * 255).clip(0, 255).astype(np.uint8))
+        # print("x avg", torch.mean(x)) #0.4000  항상 0.4 
+        # print("x[0][2] avg", torch.mean(x[0][2])) #0..
 
         B, N, C, H, W = x.size()  # N video frames
         eo = []
@@ -194,33 +201,52 @@ class DfConv_EkSA(nn.Module):
             eo.append(int('{:.0f}'.format(evenodd[i,0,0,0])))
 
         x_center = x[:, self.center, :, :, :].contiguous()
+        # print("x_center shape", x_center.shape) #torch.Size([8, 3, 128, 448])
+        # print("x_center avg", torch.mean(x_center)) #0.  ??
+        # print("x_center avg *255", torch.mean(x_center*255)) #0.???
+        # cv2.imwrite(f'/home/kimsy701/Video-Deinterlacing/x_center.png', (x_center[0]*255).clip(0,255).int().cpu().permute(1,2,0).numpy())
 
         #### extract LR features
         aligned_fea = self.dc_align(x)
+        # print("aligned_fea len", len(aligned_fea)) #N?  #5 # list
+        # print("aligned_fea[0] len",len(aligned_fea[0])) #8
+        # print("aligned_fea[0][0] shape", aligned_fea[0][0].shape) #torch.Size([64, 128, 448])
+        # cv2.imwrite(f'/home/kimsy701/Video-Deinterlacing/aligned_fea.png', (aligned_fea[2]*255).int().cpu().permute(1,2,0).numpy()) #중간꺼 print
+
+
         aligned_fea = torch.stack(aligned_fea, dim=1)  # [B, N, C, H, W]
         
         if not self.w_TSA:
-            aligned_fea = aligned_fea.view(B, -1, H, W)
+            aligned_fea = aligned_fea.view(B, -1, H, W) 
+            # print("aligned_fea shape here", aligned_fea.shape) #torch.Size([8, 320, 128, 448])  #torch.Size([8, 64x5, 128, 448]) 
         
         fea = self.tsa_fusion(aligned_fea)
+        # print("fea shape", fea.shape) #torch.Size([8, 64, 128, 448])
 
         #knn attention
         xf  = self.lrelu(self.knnattn_conv_1(x.view(-1, C, H, W)))
         xf = self.knn_attn(self.knnattn_conv_2(xf.view(B, -1, H, W)))
         
         fea = fea + xf
+        # print("xf shape", xf.shape) #torch.Size([8, 64, 128, 448])
+        # print("final fea shape", fea.shape) #torch.Size([8, 64, 128, 448])
         
         out = []
         for i in range(B):
-            fea0 = fea[i,:,:,:].unsqueeze(0)
-            if eo[i]:
+            fea0 = fea[i,:,:,:].unsqueeze(0) #torch.Size([1, 64, 128, 448])
+            if eo[i]: #when evenodd mode
                out.append(self.recon_trunk1(fea0).squeeze())
-            else:
-               out.append(self.recon_trunk2(fea0).squeeze())
-            del fea0
+            #    print("self.recon_trunk1(fea0) shape", self.recon_trunk1(fea0).shape) #torch.Size([1, 64, 128, 448])
+            else: # when not ovenodd mode
+            #    out.append(self.recon_trunk2(fea0).squeeze())
+                out.append(self.recon_trunk1(fea0).squeeze())
+                del fea0
         out = torch.stack(out, dim=0)
         out = self.lrelu(self.HRconv(out))
+        # print("self.HRconv(out) shape",self.HRconv(out).shape) #torch.Size([8, 64, 128, 448])
+        # print("out lrelu shape",out.shape ) #torch.Size([8, 64, 128, 448])
         out = self.conv_last(out)
+        # print("out last conv shape",out.shape) #torch.Size([8, 3, 128, 448])
 
         base = torch.zeros(B, C, 2*H, W).cuda()
         for i in range(B):
