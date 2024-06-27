@@ -7,19 +7,31 @@ import Dataset.utils as util
 import numpy as np
 
 class CustomDataset(Dataset):
-    def __init__(self, lq_folder, gt_folder, data_mode=None, transform=None):
-        self.lq_folder = lq_folder
-        self.gt_folder = gt_folder
+    def __init__(self, dataset_name, lq_folder, gt_folder, lq_folder_val, gt_folder_val, data_mode=None, transform=None):
+        
+        self.dataset_name = dataset_name
+        
+        if self.dataset_name=="train":
+            self.lq_folder=lq_folder
+            self.gt_folder=gt_folder
+        elif self.dataset_name=="validation":
+            self.lq_folder=lq_folder_val
+            self.gt_folder=gt_folder_val
+            
         self.data_mode = data_mode
         self.transform = transform
+        
 
-        self.lq_subfolders = sorted(glob.glob(os.path.join(lq_folder, '*')))
-        self.gt_subfolders = sorted(glob.glob(os.path.join(gt_folder, '*')))
+        self.lq_subfolders = sorted(glob.glob(os.path.join(self.lq_folder, '*')))
+        self.gt_subfolders = sorted(glob.glob(os.path.join(self.gt_folder, '*')))
+        
+
 
     def __len__(self):
         return len(self.lq_subfolders)
 
     def __getitem__(self, idx):
+        print("idx", idx)
         lq_subfolder = self.lq_subfolders[idx]
         gt_subfolder = self.gt_subfolders[idx]
 
