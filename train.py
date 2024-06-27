@@ -78,20 +78,21 @@ def train(rank, world_size, args):
     
     train_dataset_folder = '/home/kimsy701/Video-Deinterlacing/Dataset/sampled_train_dataset' # 6장씩..!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     GT_dataset_folder = '/home/kimsy701/Video-Deinterlacing/Dataset/sampled_gt_frames_re' #5장씩 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-    # train_dataset = CustomDataset(train_dataset_folder, GT_dataset_folder, data_mode = data_mode)  # Implement this dataset class as needed
-    train_dataset = CustomDataset(train_dataset_folder, GT_dataset_folder)
-    train_sampler = DistributedSampler(train_dataset, num_replicas=world_size, rank=rank)
-    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, sampler=train_sampler, num_workers=4, pin_memory=True)
-    
-    
     
     validation_dataset_folder = '/home/kimsy701/Video-Deinterlacing/Dataset/train_val_10' # 6장씩..!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     val_GT_dataset_folder = '/home/kimsy701/Video-Deinterlacing/Dataset/gt_val_10' #5장씩 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+
+    # train_dataset = CustomDataset(train_dataset_folder, GT_dataset_folder, data_mode = data_mode)  # Implement this dataset class as needed
+    train_dataset = CustomDataset("train", train_dataset_folder, GT_dataset_folder,validation_dataset_folder,val_GT_dataset_folder)
+    train_sampler = DistributedSampler(train_dataset, num_replicas=world_size, rank=rank)
+    train_loader = DataLoader(train_dataset, batch_size=args.batch_size, sampler=train_sampler, num_workers=4, pin_memory=True)
     
-    validation_dataset = CustomDataset(validation_dataset_folder, val_GT_dataset_folder)  # Implement this dataset class as needed
+    validation_dataset = CustomDataset("validation", train_dataset_folder, GT_dataset_folder,validation_dataset_folder,val_GT_dataset_folder)  # Implement this dataset class as needed
     validation_sampler = DistributedSampler(validation_dataset, num_replicas=world_size, rank=rank)
     validation_loader = DataLoader(validation_dataset, batch_size=args.batch_size, sampler=train_sampler, num_workers=4, pin_memory=True)
+    
     
     #### loss function and optimizer ##########################################################
     criterion = nn.MSELoss().to(device)
@@ -184,7 +185,7 @@ def train(rank, world_size, args):
         if rank == 0 and (epoch) % 2== 0:
             checkpoint_path = f'./Models/trained_modelscheckpoint_epoch_{epoch}.pth'
             torch.save(model.state_dict(), checkpoint_path)
-            save_optimizer_state(path='./Models/optimizer-ckpt.pth', rank=rank, step=epoch)
+            save_optimizer_state(path='./Models', rank=rank, step=epoch)
             psnr,ssim_value,eval_loss = evaluate(validation_loader)
             
             # 🐝 Log train and validation metrics to wandb
