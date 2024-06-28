@@ -39,6 +39,7 @@ wandb.init(
 rank=int(os.environ['LOCAL_RANK'])
 # print("rank", rank)
 torch.cuda.set_device(rank)
+device = torch.device('cuda', rank)
 
 def setup_ddp(rank, world_size):
     os.environ['MASTER_ADDR'] = 'localhost'
@@ -91,7 +92,7 @@ def train(rank, world_size, args):
     
     validation_dataset = CustomDataset("validation", train_dataset_folder, GT_dataset_folder,validation_dataset_folder,val_GT_dataset_folder)  # Implement this dataset class as needed
     validation_sampler = DistributedSampler(validation_dataset, num_replicas=world_size, rank=rank)
-    validation_loader = DataLoader(validation_dataset, batch_size=args.batch_size, sampler=train_sampler, num_workers=4, pin_memory=True)
+    validation_loader = DataLoader(validation_dataset, batch_size=args.batch_size, sampler=validation_sampler, num_workers=4, pin_memory=True)
     
     
     #### loss function and optimizer ##########################################################
@@ -209,10 +210,13 @@ def evaluate(val_dataloader):
     back_RBs = 7
 
     model = DfRes_arch_nores_nlsa.DfConv_EkSA(64, N_in, 8, 5, back_RBs, predeblur=predeblur, HR_in=HR_in, w_TSA=False)
+    model = model.to(device)
     
     for i, data in enumerate(val_dataloader):
-        imgs_LQ, imgs_GT = data
+        imgs_LQ, imgs_GT,img_path_l = data
 
+        imgs_LQ = imgs_LQ.to(device)
+        imgs_GT = imgs_GT.to(device)
         
         with torch.no_grad():
             
