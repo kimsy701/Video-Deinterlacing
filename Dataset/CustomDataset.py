@@ -31,7 +31,6 @@ class CustomDataset(Dataset):
         return len(self.lq_subfolders)
 
     def __getitem__(self, idx):
-        print("idx", idx)
         lq_subfolder = self.lq_subfolders[idx]
         gt_subfolder = self.gt_subfolders[idx]
 
@@ -64,7 +63,7 @@ class CustomDataset(Dataset):
 
         # print("torch.stack(gt_imgs) shape",torch.stack(gt_imgs).shape) #torch.Size([5, 256, 448, 3])
         # print("lq_imgs[2] avg",torch.mean(lq_imgs[2]))  #다 0됨 
-        return lq_imgs, torch.stack(gt_imgs),img_path_l
+        return lq_imgs, torch.stack(gt_imgs), img_path_l
 
 # if __name__ == '__main__':
 #     lq_folder = './Dataset/train_val_100'
