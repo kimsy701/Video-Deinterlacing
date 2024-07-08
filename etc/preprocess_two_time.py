@@ -48,7 +48,7 @@ dest_path = '/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/gt_val_winter_
 # 486 -> 위 아래 3,3 씩 자르기 
 # /home/kimsy701/deinter_venv/train_val_MS 에서 /home/kimsy701/deinter_venv/train_val_MS_crop으로 
 # input_folder_path='/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/gt_val_winter_two_time'
-# output_folder_path='/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/gt_val_winter_two_time_fi'
+# output_folder_path='/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/gt_val_winter_two_time_fi_pad'
 
 # for folder in sorted(os.listdir(input_folder_path)):
 #     frames = [] #for each 1_1, 1_2 folder
@@ -62,7 +62,9 @@ dest_path = '/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/gt_val_winter_
           
 #     for filename, frame in frames:
 #       # Process for odd and even fields
-#         processed_frame = frame[3:483,:,:] #3,4,5....482
+#         # processed_frame = frame[3:483,:,:] #3,4,5....482
+#         padding = ((13, 13), (0, 0), (0, 0))  # (top, bottom), (left, right), (color channels)
+#         processed_frame = np.pad(frame, padding, mode='constant', constant_values=0)
         
 #         # Convert the processed frame back to a PIL Image
 #         processed_img = Image.fromarray(processed_frame)
@@ -228,9 +230,9 @@ def process_folders_bff(ori_path, des_path):
 
 
 #수행
-ori_path = "/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/gt_val_winter_two_time_fi"
-dest_path="/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_fi_bff"
-process_folders_bff(ori_path,dest_path)
+# ori_path = "/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/gt_val_winter_two_time_fi_pad"
+# dest_path="/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_fi_bff_pad"
+# process_folders_bff(ori_path,dest_path)
 
 
 ######################## 반으로 잘린 이미지 -> interpolate 해서 gt 스러운 이미지 만들기 ########################
@@ -289,8 +291,218 @@ def process_folders_for_interpolation(ori_path, des_path, scale_factor=2):
                     bicubic_interpolate_image(input_image_path, output_image_path, scale_factor)
 
 # 사용
-ori_path = '/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_fi_bff'
-des_path = '/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/gt_val_winter_two_time_fi_bff'
+
+# ori_path = '/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_fi_bff_pad'
+# des_path = '/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_fi_bff_bicubic_pad'
 # process_folders_for_interpolation(ori_path, des_path)
 
 
+# ori_path = '/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_fi_bff_pad'
+# des_path = '/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/gt_val_winter_two_time_fi_bff_pad'
+# process_folders_for_interpolation(ori_path, des_path)
+
+
+######################## train data interpolate 한거에서, 최종적으로 even, odd, even, odd 해서 가져오기  ########################
+
+"""
+
+import os
+import numpy as np
+from PIL import Image
+import torch.nn as nn
+
+class Slice_pred(nn.Module):
+
+    def __init__(self):
+        super(Slice_pred, self).__init__()
+
+    def forward(self, image):
+        frames_output = []
+        # gt_frames_output=[]
+
+        # Process frames for odd and even fields and save them
+        for i, img in enumerate(image):
+            # Process for odd and even fields
+            # processed_img = img[1::2, :] if i % 2 == 0 else img[::2, :] #val_ version1 #try1 (이게 맞을 듯)
+            # processed_img = img[::2, :] if i % 2 == 0 else img[1::2, :] #val_ version1 #try2 
+            processed_img = img[1::2, :] if (i // 2) % 2 == 0 else img[::2, :] #try3 #eeooee,eeooee,eeooee,
+            frames_output.append(processed_img)
+
+        return frames_output
+    
+    
+class Slice_pred2(nn.Module):
+
+    def __init__(self):
+        super(Slice_pred2, self).__init__()
+
+    def forward(self, image, f_idx):
+        frames_output = []
+        # gt_frames_output=[]
+
+        # Process frames for odd and even fields and save them
+        for i, img in enumerate(image):
+            # Process for odd and even fields
+            # processed_img = img[1::2, :] if i % 2 == 0 else img[::2, :] #val_ version1 #try1 (이게 맞을 듯)
+            # processed_img = img[::2, :] if i % 2 == 0 else img[1::2, :] #val_ version1 #try2 
+            # processed_img = img[1::2, :] if (i // 2) % 2 == 0 else img[::2, :] #try3 #eeooee,eeooee,eeooee,
+            #try4 #eeooee,ooeeoo,eeooee,
+            if (i // 2) % 2 == 0 and f_idx % 2 == 0:
+                processed_img= img[1::2, :]
+            elif (i // 2) % 2 == 1 and f_idx % 2 == 0:
+                processed_img= img[::2, :]
+                
+            elif (i // 2) % 2 == 0 and f_idx % 2 == 1:
+                processed_img= img[::2, :]
+            elif (i // 2) % 2 == 1 and f_idx % 2 == 1:
+                processed_img= img[1::2, :]
+            
+            frames_output.append(processed_img)
+
+        return frames_output
+    
+
+
+# Define source directory
+# source_dir = "/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_fi_bff_bicubic"
+source_dir = "/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_fi_bff_bicubic_pad"
+
+# Define destination directory
+#destination_dir = os.path.join(os.getcwd(), 'train_sliced')
+#gt_destination_dir = os.path.join(os.getcwd(), 'gt_sliced')
+
+# destination_dir1="/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_fi_bff_bicubic_fi" #try1 (이게 맞을 듯)
+# destination_dir1="/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_fi_bff_bicubic_fi2" #try2
+# destination_dir1="/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_fi_bff_bicubic_fi3" #try3
+# destination_dir1="/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_fi_bff_bicubic_fi4" #try4
+destination_dir1="/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_fi_bff_bicubic_pad_fi" #try5
+# gt_destination_dir="C:\\Users\\인쇼츠\\Desktop\\Deinterlacing구현\\inference_data\\train\\img\\gt_sliced\\21_21"
+
+# Create destination directory if it doesn't exist
+if not os.path.exists(destination_dir1):
+    os.makedirs(destination_dir1)
+
+
+    
+# Iterate over each folder in the source directory
+for folder_idx, folder_name in sorted(enumerate(os.listdir(source_dir))):  #only first 72436 folder
+    if os.path.isdir(os.path.join(source_dir, folder_name)):
+        # Construct source folder path
+        source_folder_path = os.path.join(source_dir, folder_name)
+        # Construct destination folder path
+        destination_folder_path1 = os.path.join(destination_dir1, folder_name)
+        # Create destination folder if it doesn't exist
+        if not os.path.exists(destination_folder_path1):
+            os.makedirs(destination_folder_path1)
+
+
+        # Load images from the source folder
+        images = []  # List to hold images as arrays for processing
+        for filename in sorted(os.listdir(source_folder_path)):
+            if filename.endswith('.png'):  # Assuming images are PNG files
+                img = Image.open(os.path.join(source_folder_path, filename))
+                images.append(np.array(img))
+
+        # Instantiate Slice model
+        # slice_model = Slice_pred()
+        slice_model2 = Slice_pred2()
+               
+        
+        
+        
+        # Process images using Slice model
+        # processed_images, gt_processed_images = slice_model(images)
+        # processed_images = slice_model(images)
+        processed_images = slice_model2(images, folder_idx)
+
+        # Save processed images to the destination folder
+        for i, processed_img in enumerate(processed_images):
+            processed_img = Image.fromarray(processed_img)
+            processed_img.save(os.path.join(destination_folder_path1, f'im{i+1}.png'),compress_level=0)
+            
+
+"""
+######################## 만들어진 60개에서 30개씩만 가져와서 영상 말기 (1,3,5,만 가져오기    &     2,4,6만 가져오기 )  ########################
+
+# List and sort files in the input directory
+input_folder_path='/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_pad_nobicubic_rst_fi'
+files = sorted(os.listdir(input_folder_path))
+
+#### try 1
+
+# output_folder_path='/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_pad_nobicubic_rst_fi_only30_1'
+# os.makedirs(output_folder_path, exist_ok=True)
+
+# # Enumerate through the files and copy every second one
+# i=1
+# for file_idx, filename in enumerate(files):
+#     ori_file_path = os.path.join(input_folder_path, filename)
+#     if file_idx % 2 == 0: 
+#         dest_file_path = os.path.join(output_folder_path, f"{i:08d}.png")
+#         shutil.copyfile(ori_file_path, dest_file_path)
+#         i+=1
+
+# #### try 2
+
+# output_folder_path='/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_pad_nobicubic_rst_fi_only30_2'
+# os.makedirs(output_folder_path, exist_ok=True)
+
+# i=1
+# for file_idx, filename in enumerate(files):
+#     ori_file_path = os.path.join(input_folder_path, filename)
+#     if file_idx % 2 == 1: 
+#         dest_file_path = os.path.join(output_folder_path, f"{i:08d}.png")
+#         shutil.copyfile(ori_file_path, dest_file_path)
+#         i+=1
+        
+######################## remove padding ########################
+# input_folder_path='/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_pad_nobicubic_rst_fi_only30_1'
+# output_folder_path='/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_pad_nobicubic_rst_fi_only30_1_rmv_pad'
+# os.makedirs(output_folder_path, exist_ok=True)
+
+
+# frames = []
+# for file_idx, filename in sorted(enumerate(os.listdir(input_folder_path))):
+#     if filename.endswith(('.png', '.jpg', '.jpeg')):
+#         file_path = os.path.join(input_folder_path, filename)
+#         img = Image.open(file_path)
+#         frames.append((filename, np.array(img)))  # Store filename along with the frame
+
+# for filename, frame in frames:
+#     print("filename",filename)
+#     # Process for odd and even fields
+#     processed_frame = frame[13:512-13, :, :]  # Adjust the slice as needed
+
+#     # Convert the processed frame back to a PIL Image
+#     processed_img = Image.fromarray(processed_frame)
+
+#     # Construct the output filename
+#     output_filename = filename  # Use original filename
+#     output_path = os.path.join(output_folder_path, output_filename)
+
+#     processed_img.save(output_path, compress_level=0)
+        
+        
+input_folder_path='/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_pad_nobicubic_rst_fi_only30_2'
+output_folder_path='/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/train_val_winter_two_time_pad_nobicubic_rst_fi_only30_2_rmv_pad'
+os.makedirs(output_folder_path, exist_ok=True)
+
+frames=[]
+for filename in sorted(os.listdir(input_folder_path)):
+    if filename.endswith(('.png', '.jpg', '.jpeg')):
+        file_path = os.path.join(input_folder_path, filename)
+        img = Image.open(file_path)
+        frames.append((filename, np.array(img)))  # Store filename along with the frame
+          
+for filename, frame in frames:
+    # Process for odd and even fields
+    processed_frame = frame[13:512-13,:,:] #13,14,...498
+    
+    # Convert the processed frame back to a PIL Image
+    processed_img = Image.fromarray(processed_frame)
+
+    # Construct the output filename including both folder name and original filename
+    output_filename = f"{filename}"  # Concatenate folder name and original filename
+    output_path = os.path.join(output_folder_path, output_filename)
+
+    processed_img.save(output_path, compress_level=0)
