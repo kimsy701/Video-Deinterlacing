@@ -12,7 +12,7 @@ import shutil
 #         except ValueError:
 #             return float('inf')  # Return infinity for non-numeric parts (optional)
 #     return float('inf')  # Return infinity if no underscore is found (optional)
-def extract_number(directory):
+def extract_number2(directory):
     return int(directory)
 
 
