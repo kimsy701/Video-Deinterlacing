@@ -314,24 +314,16 @@ class Unimatch(nn.Module):
         
         return mean_flow
 
-
+"""
 class EdgeDetection(nn.Module):
     def __init__(self, threshold1, threshold2):
         super(EdgeDetection, self).__init__()
-        """
-        EdgeDetection 클래스 초기화
-        :param threshold1: Canny 엣지 감지의 첫 번째 임계값
-        :param threshold2: Canny 엣지 감지의 두 번째 임계값
-        """
+
         self.threshold1 = threshold1
         self.threshold2 = threshold2
 
     def forward(self, img):
-        """
-        엣지 감지 적용 및 마스킹
-        :param image_path: 이미지 파일 경로
-        :return: 연결되지 않은 부분을 마스킹한 이미지
-        """
+
         # 이미지 읽기
         if img is None:
             raise ValueError("이미지를 읽을 수 없습니다. 경로를 확인하세요.")
@@ -341,10 +333,11 @@ class EdgeDetection(nn.Module):
         # compute the median of the single channel pixel intensities
         img_gray=cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         v = np.median(img_gray)
+        print("v",v) #0.45, 
         
         # apply automatic Canny edge detection using the computed median
-        lower = int(max(0, (1.0 - sigma) * v))
-        upper = int(min(255, (1.0 + sigma) * v))
+        lower = int(max(0, (1.0 - sigma) * v)) #0.30
+        upper = int(min(255, (1.0 + sigma) * v)) #0.59
         
         gray_image_8bit = cv2.convertScaleAbs(img_gray)
         # 엣지 감지
@@ -362,6 +355,82 @@ class EdgeDetection(nn.Module):
         mask[dilated_edges > 0] = 0  # 엣지가 있는 부분은 0, 없는 부분은 1
 
         return mask
+"""
+    
+class EdgeDetection(nn.Module):
+    def __init__(self):
+        super(EdgeDetection, self).__init__()
+
+    def forward(self, img):
+        """
+        엣지 감지 적용 및 마스킹
+        :param img: 입력 이미지
+        :return: 낮은 임계값과 높은 임계값의 엣지 차이를 마스킹한 이미지
+        """
+        if img is None:
+            raise ValueError("이미지를 읽을 수 없습니다. 이미지를 확인하세요.")
+
+        # 그레이스케일로 변환
+        img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        
+        sigma=0.33
+        
+        # compute the median of the single channel pixel intensities
+        img_gray=cv2.cvtColor(img, cv2.COLOR_BGR2GRAY) *255
+        
+        v = np.median(img_gray)
+        # v = np.median(img)
+        print("v",v) #0.45, 
+        
+        # apply automatic Canny edge detection using the computed median
+        lower = max(0, (1.0 - sigma) * v) #0.30
+        upper = min(255, (1.0 + sigma) * v)#0.59
+        
+        print("lower",lower,"upper",upper,1)
+        
+        gray_image_8bit = cv2.convertScaleAbs(img_gray)
+        # gray_image_8bit = cv2.convertScaleAbs(img)
+
+        # 낮은 임계값으로 엣지 감지
+        # edges_low = cv2.Canny(gray_image_8bit, lower, upper/5)
+        edges_low = cv2.Canny(gray_image_8bit, lower, upper)
+
+        # 높은 임계값으로 엣지 감지
+        edges_high = cv2.Canny(gray_image_8bit, lower, upper * 1.5)
+
+        # 두 엣지 간의 차이를 계산
+        edge_diff = cv2.absdiff(edges_low, edges_high)
+
+        # 엣지 부분의 주변 픽셀을 1로 설정하기 위한 커널
+        kernel_size = 5
+        kernel = np.ones((kernel_size, kernel_size), np.uint8)
+
+        # 엣지 부분의 주변 영역을 1로 설정
+        dilated_edges = cv2.dilate(edge_diff, kernel, iterations=1)
+
+        # 차이 부분을 마스킹
+        mask = np.ones_like(edge_diff, dtype=np.uint8)
+        mask[dilated_edges > 0] = 0  # 엣지 차이가 있는 부분은 0, 없는 부분은 1
+        
+        
+
+        
+        # 엣지 부분의 주변 픽셀을 1로 설정하기 위한 커널
+        kernel_size = 5
+        kernel = np.ones((kernel_size, kernel_size), np.uint8)
+        
+        # 엣지 부분의 주변 영역을 1로 설정
+        dilated_edges1 = cv2.dilate(edges_low, kernel, iterations=1)
+        dilated_edges2 = cv2.dilate(edges_high, kernel, iterations=1)
+
+        # 연결되지 않은 부분을 마스킹
+        mask1 = np.ones_like(edges_low, dtype=np.uint8)
+        mask1[dilated_edges1> 0] = 0  # 엣지가 있는 부분은 0, 없는 부분은 1
+        mask2 = np.ones_like(edges_high, dtype=np.uint8)
+        mask2[dilated_edges2> 0] = 0  # 엣지가 있는 부분은 0, 없는 부분은 1
+
+
+        return mask,lower,upper, mask1, mask2
     
     
 class DiagonalNoise(nn.Module):
@@ -370,46 +439,35 @@ class DiagonalNoise(nn.Module):
         self.diff_thres = diff_thres
         self.period = period
 
-    def detect_periodic_combing_noise(self, image):
+    def forward(self, image):
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-        # Apply filters to detect diagonal patterns
-        kernel_1 = np.array([[1, -2, 1], [-2, 5, -2], [1, -2, 1]])  # Diagonal from top-left to bottom-right
-        kernel_2 = np.array([[-2, 1, -2], [1, 4, 1], [-2, 1, -2]])  # Diagonal from top-right to bottom-left
+        # Define filters to detect diagonal patterns
+        kernels = {
+            # 'Diagonal TL-BR (small)': np.array([[-1, 1, 0], [-1, 1, 0], [-1, 1, 0]]),  # Diagonal from top-left to bottom-right
+            # 'Diagonal BL-TR (small)': np.array([[0, 1, -1], [0, 1, -1], [0, 1, -1]]),  # Diagonal from bottom-left to top-right
+            'Diagonal TL-BR (medium)': np.array([[-1, 1, 0, 0], [-1, 1, 0, 0], [-1, 1, 0, 0], [-1, 1, 0, 0]]),  # Medium diagonal from top-left to bottom-right
+            'Diagonal BL-TR (medium)': np.array([[0, 1, -1, 0], [0, 1, -1, 0], [0, 1, -1, 0], [0, 1, -1, 0]])  # Medium diagonal from bottom-left to top-right
+        }
 
-        filtered_1 = cv2.filter2D(gray, -1, kernel_1)
-        filtered_2 = cv2.filter2D(gray, -1, kernel_2)
+        # Apply the filters to the image
+        filtered_images = {name: cv2.filter2D(image, -1, kernel) for name, kernel in kernels.items()}
 
-        # Combine the filtered images
-        filtered_combined = cv2.addWeighted(filtered_1, 0.5, filtered_2, 0.5, 0)
+        # Post-processing to highlight detected diagonals
+        # Convert to binary image where detected diagonal areas are white
+        binary_images = {name: np.where(img > 0, 255, 0).astype(np.uint8) for name, img in filtered_images.items()}
 
-        # Apply morphological operations to enhance the detected patterns
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
-        morph = cv2.morphologyEx(filtered_combined, cv2.MORPH_CLOSE, kernel)
+        # Combine binary images to show all detected diagonals
+        added_mask = np.array(list(binary_images.values()))[0] + np.array(list(binary_images.values()))[1]
+        single_channel_mask = np.max(added_mask, axis=-1)
+        # print("mask",single_channel_mask.shape)  #(480, 720)
+        
+        # print(np.array(mask))
 
-        # Apply dilation and erosion for further enhancement
-        dilated = cv2.dilate(morph, kernel, iterations=1)
-        eroded = cv2.erode(dilated, kernel, iterations=1)
+        return single_channel_mask
 
-        # Apply threshold to the filtered image to get binary result
-        _, binary_image = cv2.threshold(eroded, self.diff_thres, 255, cv2.THRESH_BINARY)
+    
 
-        height, width = binary_image.shape
-        mask = np.zeros_like(binary_image)
-
-        # Detect periodic noise
-        for row in range(height):
-            if row % self.period == 0:
-                mask[row, :] = binary_image[row, :]
-
-        return mask
-
-    def forward(self, image):
-
-        # Detect periodic noise
-        periodic_noise = self.detect_periodic_combing_noise(image)
-
-        return periodic_noise
     
 
 # vertical median where flow is high(mask=1)
@@ -447,7 +505,7 @@ class VertiHoriMedian(nn.Module):
 
 ########## process ###########
 # Process images in the folder
-def process_images_in_folder(folder_path,save_path,flow_save_path,flow_mask_save_path, edge_save_path,diag_save_path, unimatch, edgedetection, diagonalnoise, vertihorimedian, threshold, vertical_size):
+def process_images_in_folder(folder_path,save_path,flow_save_path,flow_mask_save_path, edge_save_path,diag_save_path,fi_mask_save_path, unimatch, edgedetection, diagonalnoise, vertihorimedian, threshold, vertical_size):
     image_paths = sorted(glob.glob(os.path.join(folder_path, '*.png')), key=extract_number4)
     
     for i, image_path in enumerate(image_paths):
@@ -475,9 +533,20 @@ def process_images_in_folder(folder_path,save_path,flow_save_path,flow_mask_save
         cv2.imwrite(flow_mask_save_path, flow_mask.squeeze(0).squeeze(0) * 255)  # Save as image
         
         ##### edge #####
-        edge_mask=edgedetection(img)
-        edge_save_path = os.path.join(edge_save_path, f'{i+1}.png')
+        edge_mask, lower, upper, mask1, mask2=edgedetection(img)
+        print("lower",lower,"upper",upper)
+        edge_save_foler_path=f'{edge_save_path}_th1_{lower}_th2_{upper}'
+        edge_save_foler_path1=f'{edge_save_path}_th1_{lower}_th2_{upper}_mask1'
+        edge_save_foler_path2=f'{edge_save_path}_th1_{lower}_th2_{upper}_mask2'
+        os.makedirs(edge_save_foler_path, exist_ok=True)
+        os.makedirs(edge_save_foler_path1, exist_ok=True)
+        os.makedirs(edge_save_foler_path2, exist_ok=True)
+        edge_save_path = os.path.join(edge_save_foler_path, f'{i+1}.png')
+        edge_save_path1 = os.path.join(edge_save_foler_path1, f'{i+1}.png')
+        edge_save_path2 = os.path.join(edge_save_foler_path2, f'{i+1}.png')
         cv2.imwrite(edge_save_path, edge_mask * 255)  # Save as image
+        cv2.imwrite(edge_save_path1, mask1 * 255)  # Save as image
+        cv2.imwrite(edge_save_path2, mask2 * 255)  # Save as image
         
         ##### 대각선 노이즈 #####
         diagonal_mask=diagonalnoise(img)
@@ -486,12 +555,18 @@ def process_images_in_folder(folder_path,save_path,flow_save_path,flow_mask_save
         
         
         ##### final mask #####
-        fi_mask = np.logical_and.reduce((flow_mask.squeeze(0).squeeze(0) == 1, edge_mask == 1, diagonal_mask == 1)).astype(np.uint8)
-        
+        # flow_mask와 edge_mask의 AND 조건을 먼저 계산
+        and_mask = np.logical_and(flow_mask.squeeze(0).squeeze(0) == 1, edge_mask == 1)
+
+        # AND 조건 결과와 diagonal_mask의 OR 조건을 계산
+        fi_mask = np.logical_or(and_mask, diagonal_mask == 1).astype(np.uint8)
+        fi_mask_save_path = os.path.join(fi_mask_save_path, f'{i+1}.png')
+        cv2.imwrite(fi_mask_save_path, fi_mask * 255)  # Save as image
         
         medianed_image = vertihorimedian(img, fi_mask, vertical_size)
         save_img_path=os.path.join(save_path,f'{i+1}.png')        
         save_image(medianed_image, save_img_path)
+        
 
 # Main script
 if __name__ == '__main__':
@@ -499,26 +574,26 @@ if __name__ == '__main__':
     flow_threshold = 1 #1.0  # Change this part if needed
     vertical_size = 3 #얼마나 median 취할지 radius
     
-    edge_th1=0
-    edge_th2=0.00001
 
     folder_path = '/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/qtgmc_winter_rst_twotime_sample'  # Update this path
-    save_path = f'/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/qtgmc_winter_rst_twotime_sample_vertihorimedian_size{vertical_size}_flowth{flow_threshold}_edge2th{edge_th2}_diagonal'
+    save_path = f'/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/qtgmc_winter_rst_twotime_sample_vertihorimedian_size{vertical_size}_flowth{flow_threshold}_edge_diagonal'
     os.makedirs(save_path, exist_ok=True)
     
     flow_save_path=f'/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/qtgmc_winter_rst_flow_{flow_threshold}'
     flow_mask_save_path=f'/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/qtgmc_winter_rst_flow_mask{flow_threshold}'
-    edge_save_path=f'/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/qtgmc_winter_rst_edge_th1_{edge_th1}_th2_{edge_th2}'
+    edge_save_path=f'/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/qtgmc_winter_rst_edge'
     diag_save_path=f'/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/qtgmc_winter_rst_diag'
+    fi_mask_save_path=f'/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/qtgmc_winter_rst_fi_mask_vertihorimedian'
     os.makedirs(flow_save_path, exist_ok=True)
     os.makedirs(flow_mask_save_path, exist_ok=True)
     os.makedirs(edge_save_path, exist_ok=True)
     os.makedirs(diag_save_path, exist_ok=True)
+    os.makedirs(fi_mask_save_path, exist_ok=True)
     
     
     unimatch = Unimatch(gt_root=folder_path)
-    edgedetection=EdgeDetection(edge_th1, edge_th2)
+    edgedetection=EdgeDetection()
     diagonalnoise=DiagonalNoise()
     vertihorimedian = VertiHoriMedian()
     
-    process_images_in_folder(folder_path,save_path,flow_save_path,flow_mask_save_path, edge_save_path,diag_save_path, unimatch, edgedetection, diagonalnoise, vertihorimedian, flow_threshold,vertical_size)
+    process_images_in_folder(folder_path,save_path,flow_save_path,flow_mask_save_path, edge_save_path,diag_save_path,fi_mask_save_path,unimatch, edgedetection, diagonalnoise, vertihorimedian, flow_threshold,vertical_size)
