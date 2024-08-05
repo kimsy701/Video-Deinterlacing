@@ -27,8 +27,6 @@ def load_images_from_folders(base_path, base_path_im1):
                     save_path = os.path.join(base_path_im1, f'{folder_name}_im1.png')
                     image.save(save_path)
     
-# base_path = '/home/hy/train_dataset'
-# load_images_from_folders(base_path)
 
 ############################################## Clustering ############################################## 
 
@@ -126,28 +124,31 @@ def move_only_sampled_folder(cluster_and_sample_path, train_dataset_path, sample
 
     # Iterate over each folder in the cluster_and_sample directory
     for folder_name in os.listdir(cluster_and_sample_path): #680개 (10class * 68)
-        folder_path = os.path.join(cluster_and_sample_path, folder_name)
-        # Process each image in the folder
-        for image_name in os.listdir(folder_path):
-            if image_name.endswith(".png"):
-                # Extract the first 6 digits from the image name
-                folder_identifier = "_".join(image_name.split("_")[:2])
-                
-                # Construct the path to the corresponding folder in train_dataset
-                source_folder_path = os.path.join(train_dataset_path, folder_identifier)
-                
-                # Construct the destination path
-                destination_folder_path = os.path.join(sampled_train_dataset_path, folder_identifier)
-                
-                # Copy the folder to the sampled_train_dataset directory
-                if not os.path.exists(destination_folder_path):
-                    os.makedirs(destination_folder_path)
-                
-                # shutil.copytree(source_folder_path, destination_folder_path)
-                for file_name in os.listdir(source_folder_path):
-                    source_file_path = os.path.join(source_folder_path, file_name)
-                    destination_file_path = os.path.join(destination_folder_path, file_name)
-                    shutil.copy2(source_file_path, destination_file_path)
+        if folder_name.startswith("sampled_"):
+            folder_path = os.path.join(cluster_and_sample_path, folder_name)
+            # Process each image in the folder
+            for image_name in os.listdir(folder_path):
+                if image_name.endswith(".png"):
+                    # Extract the first 6 digits from the image name
+                    folder_identifier = "_".join(image_name.split("_")[:2])
+                    
+                    # Construct the path to the corresponding folder in train_dataset
+                    source_folder_path = os.path.join(train_dataset_path, folder_identifier)
+                    
+                    # Construct the destination path
+                    destination_folder_path = os.path.join(sampled_train_dataset_path, folder_identifier)
+                    
+                    # Copy the folder to the sampled_train_dataset directory
+                    if not os.path.exists(destination_folder_path):
+                        os.makedirs(destination_folder_path)
+                    
+                    # shutil.copytree(source_folder_path, destination_folder_path)
+                    for file_name in os.listdir(source_folder_path):
+                        source_file_path = os.path.join(source_folder_path, file_name)
+                        destination_file_path = os.path.join(destination_folder_path, file_name)
+                        shutil.copy2(source_file_path, destination_file_path)
+        else:
+            pass
                 
                 
         # # We only need to check one image per folder as all images in the folder have the same first 6 digits
@@ -177,32 +178,14 @@ def create_sample_gt(sampled_train_dataset_path, gt_dataset_path, sampled_gt_dat
 
     print("Copy operation completed.")
 
-# # Define paths
-# base_path = '/home/hy/test_im1'
-# organized_base_path = '/home/hy/test_organize_by_prefix'
-# cluster_rst_path = '/home/hy/test_cluster_and_sample'
-
-# # Create necessary directories
-# os.makedirs(organized_base_path, exist_ok=True)
-# os.makedirs(cluster_rst_path, exist_ok=True)
-
-# # Process images
-# organize_images(base_path, organized_base_path) 
-# for i in range(21,23):
-#     group_dir_fi = os.path.join(organized_base_path, str(i))
-#     cluster_images(group_dir_fi,cluster_rst_path, i, n_clusters=2, n_samples=1)
-# for i in range(21,23):
-#     sample_process_images(cluster_rst_path, i, n_clusters=2, n_samples=1)
-
-
 
 
 # Define paths
-base_path = '/home/kimsy701/deinter_datasets/train_frame'
-base_path_im1 = '/home/kimsy701/deinter_datasets/train_frame_im1'
-organized_base_path = '/home/kimsy701/deinter_datasets/organize_by_prefix'
-cluster_rst_path = '/home/kimsy701/deinter_datasets/cluster_and_sample'
-sampled_train_dataset_path='/home/kimsy701/deinter_datasets/sampled_train_dataset' #'/home/hy/sampled_gt_frames_re'
+base_path = '/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/sampled_gt_frames_re'
+base_path_im1 = '/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/sample_sampled/sampled_gt_frames_re_im1'
+organized_base_path = '/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/sample_sampled/organize_by_prefix'
+cluster_rst_path = '/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/sample_sampled/cluster_and_sample'
+sampled_train_dataset_path='/mnt/sde/deinter_datasets/GCP_backup/deinter_dataset/sample_sampled/sampled_sampled_gt_frames_re' #'/home/hy/sampled_gt_frames_re'
 gt_dataset_path = '/home/kimsy701/deinter_datasets/gt_frames_re'
 sampled_gt_dataset_path = '/home/kimsy701/deinter_datasets/sampled_gt_frames_re'
 
@@ -222,16 +205,16 @@ if not os.path.exists(sampled_gt_dataset_path):
 
 # Process images
 #0
-# load_images_from_folders(base_path,base_path_im1)
+load_images_from_folders(base_path,base_path_im1)
 # # 1
-# organize_images(base_path_im1, organized_base_path)
+organize_images(base_path_im1, organized_base_path)
 # # 2
 for i in tqdm(range(21,89)):
     group_dir_fi = os.path.join(organized_base_path, str(i))
-    cluster_images(group_dir_fi,cluster_rst_path, i, n_clusters=10)
+    cluster_images(group_dir_fi,cluster_rst_path, i, n_clusters=3) #각 i에 대해, 3개의 군집으로 나눔 (총 207개의 군집)
 for i in tqdm(range(21,89)):
-    sample_process_images(cluster_rst_path, i, n_clusters=10, n_samples=30)
+    sample_process_images(cluster_rst_path, i, n_clusters=3, n_samples=14) #각 군집에서 n_samples만큼 랜덤 추출
 # 3
 move_only_sampled_folder(cluster_rst_path, base_path, sampled_train_dataset_path)
-# # 4
+# 4
 create_sample_gt(sampled_train_dataset_path, gt_dataset_path, sampled_gt_dataset_path)
