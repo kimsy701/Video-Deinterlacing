@@ -100,17 +100,18 @@ def create_lf_mask(lf_image, threshold=100):
 
 
 ######################################    Applying part     ######################################
+#### path ####
+origin_path = "/mnt/sdb/VSR_Inference/4090x4_모래시계_testbackup/모래시계6회_초반11분_QTGMCeven_sample/00000450.png"
+# origin_path_gray_path="/mnt/sdb/VSR_Inference/pexels-mccutcheon-1148998_gray.png"
+origin_lfhf="/mnt/sdb/VSR_Inference/4090x4_모래시계_testbackup_reduce4.5/ori_lfhf"
+mask_dir="/mnt/sdb/VSR_Inference/4090x4_모래시계_testbackup_reduce4.5/mask_lfhf"
 
 #### Apply Sobel edge score to 전체 image #### 
 #original 이미지 처리
-origin_path = "/mnt/sdb/VSR_Inference/4090x4_모래시계_testbackup/5616*3744/pexels-mccutcheon-1148998.png"
-# origin_path = "/mnt/sdb/VSR_Inference/4090x4_모래시계_testbackup/5616*3744/pexels-mccutcheon-1148998_back.png"
 origin_image = cv2.imread(origin_path, cv2.IMREAD_GRAYSCALE)
-origin_path_gray_path="/mnt/sdb/VSR_Inference/pexels-mccutcheon-1148998_gray.png"
-cv2.imwrite(origin_path_gray_path, origin_image)
+# cv2.imwrite(origin_path_gray_path, origin_image)
 # HF/LF 이미지 분리
 lf_ori_image, hf_ori_image = find_HF_LF(origin_image)
-origin_lfhf="/mnt/sdb/VSR_Inference/4090x4_모래시계_testbackup_reduce4.5/ori_lfhf"
 os.makedirs(origin_lfhf, exist_ok=True)
 lf_ori_image_dir=os.path.join(origin_lfhf, "lf.png")
 hf_ori_image_dir=os.path.join(origin_lfhf, "hf.png")
@@ -120,23 +121,25 @@ cv2.imwrite(hf_ori_image_dir, hf_ori_image)
 #lf_mask, hf_mask 계산
 lf_mask = create_lf_mask(lf_ori_image)
 hf_mask = 1-lf_mask
-mask_dir="/mnt/sdb/VSR_Inference/4090x4_모래시계_testbackup_reduce4.5/mask_lfhf"
 os.makedirs(mask_dir, exist_ok=True)
 lf_mask_dir=os.path.join(mask_dir, "lfmask.png")
 hf_mask_dir=os.path.join(mask_dir, "hfmask.png")
-# cv2.imwrite(lf_mask_dir, lf_mask*255)
-# cv2.imwrite(hf_mask_dir, hf_mask*255) 
+print(type(lf_mask))
+cv2.imwrite(lf_mask_dir, lf_mask*255)
+cv2.imwrite(hf_mask_dir, hf_mask*255) 
 
     
-    
+"""
 #prediction한 이미지 처리
 image_paths = [
     "/mnt/sdb/VSR_Inference/4090x4_모래시계_testbackup_reduce4.5/5616*3744_inter4k_Raft_less_deg_x4_gloss_240807_large_patch_scratch_128_model_300/pexels-mccutcheon-1148998.png",
     "/mnt/sdb/VSR_Inference/4090x4_모래시계_testbackup_reduce4.5/5616*3744_basicvsr_pp_hf10_inter4k_Raft_less_deg_x4_gloss_240807_large_patch_scratch_128_model_300/pexels-mccutcheon-1148998.png",
     "/mnt/sdb/VSR_Inference/4090x4_모래시계_testbackup_reduce4.5/5616*3744_basicvsr_pp_decoderx10_inter4k_Raft_less_deg_x4_gloss_240807_large_patch_scratch_128/pexels-mccutcheon-1148998.png"
 ]
+
 output_dir = "/mnt/sdb/VSR_Inference/4090x4_모래시계_testbackup_reduce4.5/lfhf"  # 결과 이미지를 저장할 디렉토리 경로
 os.makedirs(output_dir, exist_ok=True)
+
 image_list = [cv2.imread(path, cv2.IMREAD_GRAYSCALE) for path in image_paths]  # 이미지를 흑백으로 불러옴
 
 for idx, image in enumerate(image_list):
@@ -159,3 +162,4 @@ for idx, image in enumerate(image_list):
     
     print(f"Saved LF image to: {lf_output_path}")
     print(f"Saved HF image to: {hf_output_path}")
+"""
