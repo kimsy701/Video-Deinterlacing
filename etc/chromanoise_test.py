@@ -182,7 +182,7 @@ def remap_to_original_range(channel, original_channel):
     remapped_channel = np.clip(channel, original_min, original_max)
     return remapped_channel
 
-def ChromaNoiseYUV_Modified(img, bit=255, shift_range=5): 
+def ChromaNoiseUV_Modified(img, bit=255, shift_range=5): 
     box_size = 300
     num_box = 5
     img_h, img_w, _ = img.shape
@@ -199,7 +199,6 @@ def ChromaNoiseYUV_Modified(img, bit=255, shift_range=5):
         
         # Extract the region of interest (ROI)
         roi = img[top_left_y:bottom_right_y, top_left_x:bottom_right_x]
-        print(top_left_x, top_left_y)
         
         # Convert ROI from BGR to YUV
         yuv_roi = cv2.cvtColor(roi, cv2.COLOR_BGR2YUV)
@@ -207,8 +206,6 @@ def ChromaNoiseYUV_Modified(img, bit=255, shift_range=5):
         # Split the ROI into Y, U, V channels
         y, u, v = cv2.split(yuv_roi)
         diversified_yuv_roi = cv2.merge((y, u, v))
-        diversified_bgr_roi = cv2.cvtColor(diversified_yuv_roi, cv2.COLOR_YUV2BGR)
-        cv2.imwrite("/home/spocklabs/hy/inshorts_vsr/utils/diversified_yuv_roi.png",diversified_bgr_roi)
 
         # Diversify U and V channels by expanding their distributions
         u_expanded = diversify_chroma_channel(u, target_std_multiplier=5)
@@ -217,10 +214,7 @@ def ChromaNoiseYUV_Modified(img, bit=255, shift_range=5):
         # Remap the expanded U and V channels back to the original range
         u_final = remap_to_original_range(u_expanded, u)
         v_final = remap_to_original_range(v_expanded, v)
-        
-        # Apply np.roll for shifting U and V channels
-        # u_rolled = np.roll(u_final, random.randint(-shift_range, shift_range), axis=1)
-        # v_rolled = np.roll(v_final, random.randint(-shift_range, shift_range), axis=1)
+
         u_rolled = np.roll(u_final, shift_range, axis=1)
         v_rolled = np.roll(v_final, shift_range, axis=1)
 
@@ -228,26 +222,18 @@ def ChromaNoiseYUV_Modified(img, bit=255, shift_range=5):
         diversified_yuv_roi = cv2.merge((y.astype(np.uint8), u_rolled.astype(np.uint8), v_rolled.astype(np.uint8)))
         diversified_bgr_roi = cv2.cvtColor(diversified_yuv_roi, cv2.COLOR_YUV2BGR)
 
-
         # Step 1: Slice the left 10 columns
         left_cols = diversified_yuv_roi[:, :shift_range]
 
         # Step 2: Slice the remaining columns
         remaining_cols = diversified_yuv_roi[:, shift_range:]
         remaining_cols_bgr = cv2.cvtColor(remaining_cols, cv2.COLOR_YUV2BGR)
-     
-        # Step 3: Concatenate the remaining columns with the left 10 columns added to the right
-        shifted_roi_with_wrap = np.concatenate((remaining_cols, left_cols), axis=1)
-        shifted_roi_with_wrap_bgr = cv2.cvtColor(shifted_roi_with_wrap, cv2.COLOR_YUV2BGR)
 
-        # Replace the region in the original image, adjusting the x-coordinate
-        # img[top_left_y:bottom_right_y, top_left_x:bottom_right_x] = shifted_roi
-        # img[top_left_y:bottom_right_y, top_left_x  :bottom_right_x ] = shifted_roi_with_wrap_bgr
         img[top_left_y:bottom_right_y, top_left_x+ shift_range :bottom_right_x] = remaining_cols_bgr
 
     return img
 
-def ChromaNoiseYUV_GlobalModified(img, bit=255, shift_range=5): 
+def ChromaNoiseUV_GlobalModified(img, bit=255, shift_range=5): 
     num_box = 5
     img_h, img_w, _ = img.shape
 
@@ -265,16 +251,14 @@ def ChromaNoiseYUV_GlobalModified(img, bit=255, shift_range=5):
     diversified_yuv_roi = cv2.merge((y, u, v))
 
     # Diversify U and V channels by expanding their distributions
-    u_expanded = diversify_chroma_channel(u, target_std_multiplier=5)
-    v_expanded = diversify_chroma_channel(v, target_std_multiplier=5)
+    u_expanded = diversify_chroma_channel(u, target_std_multiplier=2)
+    v_expanded = diversify_chroma_channel(v, target_std_multiplier=2)
 
     # Remap the expanded U and V channels back to the original range
     u_final = remap_to_original_range(u_expanded, u)
     v_final = remap_to_original_range(v_expanded, v)
     
     # Apply np.roll for shifting U and V channels
-    # u_rolled = np.roll(u_final, random.randint(-shift_range, shift_range), axis=1)
-    # v_rolled = np.roll(v_final, random.randint(-shift_range, shift_range), axis=1)
     u_rolled = np.roll(u_final, shift_range, axis=1)
     v_rolled = np.roll(v_final, shift_range, axis=1)
 
@@ -282,27 +266,19 @@ def ChromaNoiseYUV_GlobalModified(img, bit=255, shift_range=5):
     diversified_yuv_roi = cv2.merge((y.astype(np.uint8), u_rolled.astype(np.uint8), v_rolled.astype(np.uint8)))
     diversified_bgr_roi = cv2.cvtColor(diversified_yuv_roi, cv2.COLOR_YUV2BGR)
 
-
     # Step 1: Slice the left 10 columns
     left_cols = diversified_yuv_roi[:, :shift_range]
 
     # Step 2: Slice the remaining columns
     remaining_cols = diversified_yuv_roi[:, shift_range:]
     remaining_cols_bgr = cv2.cvtColor(remaining_cols, cv2.COLOR_YUV2BGR)
-    
-    # Step 3: Concatenate the remaining columns with the left 10 columns added to the right
-    shifted_roi_with_wrap = np.concatenate((remaining_cols, left_cols), axis=1)
-    shifted_roi_with_wrap_bgr = cv2.cvtColor(shifted_roi_with_wrap, cv2.COLOR_YUV2BGR)
 
-    # Replace the region in the original image, adjusting the x-coordinate
-    # img[top_left_y:bottom_right_y, top_left_x:bottom_right_x] = shifted_roi
-    # img[top_left_y:bottom_right_y, top_left_x  :bottom_right_x ] = shifted_roi_with_wrap_bgr
     img[:, shift_range :] = remaining_cols_bgr
 
     return img
 
 img=cv2.imread("/home/spocklabs/hy/inshorts_vsr/utils/x4-x200001498.png")
-chroma_output = ChromaNoiseYUV_GlobalModified(img,shift_range=10)
+chroma_output = ChromaNoiseUV_GlobalModified(img,shift_range=10)
 cv2.imwrite("/home/spocklabs/hy/inshorts_vsr/utils/x4-x200001498_cnoise_yuv.png",chroma_output)
 
 
