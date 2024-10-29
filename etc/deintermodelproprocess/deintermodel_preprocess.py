@@ -176,7 +176,7 @@ def rename(src_path2, des_path2):
         # file_name_int = int(os.path.splitext(files)[0])
         
         ori_file_path = os.path.join(src_path2, files)
-        new_name =f'{fi_file_name:08d}.tiff'
+        new_name =f'{fi_file_name:08d}.png'
         dest_folder_path = os.path.join(dest_path2, new_name)
             # os.mkdir(dest_folder_path)
         shutil.copy(ori_file_path, dest_folder_path)
