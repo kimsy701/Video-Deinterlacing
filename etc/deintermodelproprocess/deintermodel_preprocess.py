@@ -171,7 +171,7 @@ def height_x2_bicubic(input_folder_path,output_folder_path ):
 ################################ rename files  ################################
 def rename(src_path2, des_path2):
     fi_file_name=1
-    for idx, files in enumerate(sorted(os.listdir(src_path2), key=extract_number3)):   #change the key, according to the scr path's folder name pattern 
+    for idx, files in enumerate(sorted(os.listdir(src_path2), key=extract_number5)):   #change the key, according to the scr path's folder name pattern 
         print("os.path.splitext(files)[0]",os.path.splitext(files)[0])
         # file_name_int = int(os.path.splitext(files)[0])
         
